@@ -1,23 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Naivira Educational Platform</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div id="landing" class="center">
-  <input type="text" id="loveInput" placeholder="What is something you love?" />
-</div>
-<div id="app" class="hidden">
-  <div id="infoCard" class="container"></div>
-  <div id="chatContainer">
-    <div id="chatLog"></div>
-    <input type="text" id="chatInput" placeholder="Ask about your topic..." />
-  </div>
-  <div id="mapContainer"></div>
-</div>
-<script type="module" src="app.js"></script>pt>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naivira Educational Platform</title>
+    <!-- Main stylesheet for the application -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Authentication view: ask user to log in or sign up -->
+    <div id="authContainer" class="center">
+      <div class="auth-box">
+        <h2>Welcome to Naivira</h2>
+        <input type="text" id="username" placeholder="Username" />
+        <input type="password" id="password" placeholder="Password" />
+        <div class="auth-buttons">
+          <button id="loginBtn">Log In</button>
+          <button id="signupBtn">Sign Up</button>
+        </div>
+        <div id="authError" class="auth-error"></div>
+      </div>
+    </div>
+
+    <!-- Landing view: ask the user what they love (shown after auth) -->
+    <div id="landing" class="center hidden">
+      <input
+        type="text"
+        id="loveInput"
+        placeholder="What is something you love?"
+      />
+    </div>
+
+    <!-- Main application view: hidden until a topic is chosen -->
+    <div id="app" class="hidden">
+      <div id="infoCard" class="container"></div>
+      <div id="chatContainer">
+        <div id="chatLog"></div>
+        <input
+          type="text"
+          id="chatInput"
+          placeholder="Ask about your topic..."
+        />
+      </div>
+      <!-- Placeholder for future mycelium map visualization -->
+      <div id="mapContainer"></div>
+    </div>
+
+    <!-- Application logic -->
+    <script type="module" src="app.js"></script>
+  </body>
 </html>
