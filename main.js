@@ -1,3 +1,13 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js';
+import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js';
+import { firebaseConfig } from './firebaseConfig.js';
+
+// Initialise Firebase
+const appFirebase = initializeApp(firebaseConfig);
+const auth = getAuth(appFirebase);
+const db = getFirestore(appFirebase);
+
 document.addEventListener('DOMContentLoaded', () => {
   // DOM elements
   const authContainer = document.getElementById('authContainer');
