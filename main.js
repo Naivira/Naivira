@@ -1,10 +1,4 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js';
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  onAuthStateChanged
-} from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js';
 import { firebaseConfig } from './firebaseConfig.js';
 
@@ -55,42 +49,31 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Sign up with Firebase; treat username as email local part
-  async function handleSignup() {
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-    if (!username || !password) {
-      authError.textContent = 'Please enter a username and password';
-      return;
-    }
-    const email = `${username}@naivira.app`;
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      currentUser = cred.user.uid;
-      authError.textContent = '';
-      showLanding();
-    } catch (err) {
-      authError.textContent = err.message;
-    }
+ function handleSignup() {
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
+  if (users[username]) {
+    authError.textContent = 'Username already exists';
+    return;
   }
+  users[username] = password;
+  localStorage.setItem('naivira_users', JSON.stringify(users));
+  currentUser = username;
+  showLanding();
+}
 
-  // Log in with Firebase
-  async function handleLogin() {
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-    if (!username || !password) {
-      authError.textContent = 'Please enter your username and password';
-      return;
-    }
-    const email = `${username}@naivira.app`;
-    try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      currentUser = cred.user.uid;
-      authError.textContent = '';
-      showLanding();
-    } catch (err) {
-      authError.textContent = 'Invalid username or password';
-    }
+function handleLogin() {
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
+  if (!users[username] || users[username] !== password) {
+    authError.textContent = 'Invalid username or password';
+    return;
   }
+  currentUser = username;
+  showLanding();
+}
 
   loginBtn.addEventListener('click', handleLogin);
   signupBtn.addEventListener('click', handleSignup);
