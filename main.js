@@ -2,10 +2,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.11/firebas
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js';
 import { firebaseConfig } from './firebaseConfig.js';
 
-// Initialise Firebase
+// Initialise Firebase (still useful if you want Firestore later)
 const appFirebase = initializeApp(firebaseConfig);
-const auth = getAuth(appFirebase);
-const db = getFirestore(appFirebase);
+const db = getFirestore(appFirebase); // Not used yet, but ready when you need it
 
 document.addEventListener('DOMContentLoaded', () => {
   // DOM elements
@@ -34,46 +33,43 @@ document.addEventListener('DOMContentLoaded', () => {
   function showLanding() { hide(authContainer); show(landing); hide(app); }
   function showApp() { hide(landing); show(app); }
 
-  // Observe auth state: show landing when signed in, auth form otherwise
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentUser = user.uid;
-      authError.textContent = '';
-      showLanding();
-    } else {
-      currentUser = null;
-      show(authContainer);
-      hide(landing);
-      hide(app);
+  // Sign up using localStorage
+  function handleSignup() {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
+    if (!username || !password) {
+      authError.textContent = 'Please enter a username and password';
+      return;
     }
-  });
-
-  // Sign up with Firebase; treat username as email local part
- function handleSignup() {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value;
-  const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
-  if (users[username]) {
-    authError.textContent = 'Username already exists';
-    return;
+    if (users[username]) {
+      authError.textContent = 'Username already exists';
+      return;
+    }
+    users[username] = password;
+    localStorage.setItem('naivira_users', JSON.stringify(users));
+    currentUser = username;
+    authError.textContent = '';
+    showLanding();
   }
-  users[username] = password;
-  localStorage.setItem('naivira_users', JSON.stringify(users));
-  currentUser = username;
-  showLanding();
-}
 
-function handleLogin() {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value;
-  const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
-  if (!users[username] || users[username] !== password) {
-    authError.textContent = 'Invalid username or password';
-    return;
+  // Log in using localStorage
+  function handleLogin() {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
+    if (!username || !password) {
+      authError.textContent = 'Please enter your username and password';
+      return;
+    }
+    if (!users[username] || users[username] !== password) {
+      authError.textContent = 'Invalid username or password';
+      return;
+    }
+    currentUser = username;
+    authError.textContent = '';
+    showLanding();
   }
-  currentUser = username;
-  showLanding();
-}
 
   loginBtn.addEventListener('click', handleLogin);
   signupBtn.addEventListener('click', handleSignup);
@@ -93,7 +89,7 @@ function handleLogin() {
     showApp();
     chatLog.innerHTML = '';
     updateInfoCard();
-    // Load saved conversation from local storage keyed by UID/topic
+    // Load saved conversation from local storage keyed by user/topic
     const key = `${currentUser}_${currentTopic}_conversation`;
     const saved = JSON.parse(localStorage.getItem(key) || '[]');
     conversations[currentTopic] = saved;
