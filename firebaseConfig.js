@@ -1,6 +1,6 @@
 // Replace these values with your Firebase project’s settings
 export const firebaseConfig = {
-  apiKey: "AIzaSyBYkqaKTcsTl17oxAcGGDiV_GwZx-ucNi8",
+  apiKey: "AIzaSyBYkgaKTcsTl17oxAcGGDiV_GwZx-ucNi8",
   authDomain: "naivira-b14ed.firebaseapp.com",
   projectId: "naivira-b14ed",
   storageBucket: "naivira-b14ed.appspot.com",
