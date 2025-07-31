@@ -66,41 +66,52 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Sign up
-  function handleSignup() {
+  async function handleSignup() {
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
     if (!username || !password) {
       authError.textContent = 'Please enter a username and password';
       return;
     }
-    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
-    if (users[username]) {
-      authError.textContent = 'Username already exists';
-      return;
+    // turn a simple username into an email (or ask for email directly)
+    const email = `${username}@naivira.app`;
+    try {
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      currentUser = userCred.user.uid;
+      authError.textContent = '';
+      showLanding();
+    } catch (err) {
+      authError.textContent = err.message;
     }
-    users[username] = password;
-    saveUsers(users);
-    localStorage.setItem('naivira_currentUser', username);
-    currentUser = username;
-    authError.textContent = '';
-    showLanding();
   }
 
   // Log in
-  function handleLogin() {
+  async function handleLogin() {
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
-    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
-    if (!users[username] || users[username] !== password) {
+    const email = `${username}@naivira.app`;
+    try {
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      currentUser = userCred.user.uid;
+      authError.textContent = '';
+      showLanding();
+    } catch (err) {
       authError.textContent = 'Invalid username or password';
-      return;
     }
-    localStorage.setItem('naivira_currentUser', username);
-    currentUser = username;
-    authError.textContent = '';
-    showLanding();
   }
 
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      currentUser = user.uid;
+      showLanding();
+    } else {
+      // no user signed in
+      show(authContainer);
+      hide(landing);
+      hide(app);
+    }
+  });
+  
   loginBtn.addEventListener('click', handleLogin);
   signupBtn.addEventListener('click', handleSignup);
 
