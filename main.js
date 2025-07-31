@@ -1,24 +1,21 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // DOM references
+  // DOM elements
   const authContainer = document.getElementById('authContainer');
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const loginBtn = document.getElementById('loginBtn');
+  const signupBtn = document.getElementById('signupBtn');
+  const authError = document.getElementById('authError');
+
   const landing = document.getElementById('landing');
-  const app = document.getElementById('app');
   const loveInput = document.getElementById('loveInput');
+  const app = document.getElementById('app');
+  const infoCard = document.getElementById('infoCard');
   const chatLog = document.getElementById('chatLog');
   const chatInput = document.getElementById('chatInput');
-  const infoCard = document.getElementById('infoCard');
-
-  // Authentication inputs and buttons
-  const signupUsernameInput = document.getElementById('signupUsername');
-  const signupPasswordInput = document.getElementById('signupPassword');
-  const loginUsernameInput = document.getElementById('loginUsername');
-  const loginPasswordInput = document.getElementById('loginPassword');
-  const signupBtn = document.getElementById('signupBtn');
-  const loginBtn = document.getElementById('loginBtn');
-  const errorMessage = document.getElementById('errorMessage');
 
   let currentUser = null;
-  let currentTopic = '';
+  let currentTopic = null;
   let conversations = {};
 
   function show(element) {
@@ -30,13 +27,23 @@ document.addEventListener('DOMContentLoaded', () => {
     element.classList.remove('show');
   }
 
+  function showLanding() {
+    hide(authContainer);
+    show(landing);
+    hide(app);
+  }
+  function showApp() {
+    hide(landing);
+    show(app);
+  }
+
+  // Load saved user
   function loadUser() {
-    currentUser = localStorage.getItem('currentUser');
-    if (currentUser) {
-      hide(authContainer);
-      show(landing);
-      const stored = localStorage.getItem(currentUser + '_conversations');
-      conversations = stored ? JSON.parse(stored) : {};
+    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
+    const remembered = localStorage.getItem('naivira_currentUser');
+    if (remembered && users[remembered]) {
+      currentUser = remembered;
+      showLanding();
     } else {
       show(authContainer);
       hide(landing);
@@ -44,87 +51,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function saveConversations() {
-    if (currentUser) {
-      localStorage.setItem(currentUser + '_conversations', JSON.stringify(conversations));
-    }
+  function saveUsers(users) {
+    localStorage.setItem('naivira_users', JSON.stringify(users));
   }
 
+  // Sign up
   function handleSignup() {
-    const username = signupUsernameInput.value.trim();
-    const password = signupPasswordInput.value.trim();
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
     if (!username || !password) {
-      if (errorMessage) errorMessage.textContent = 'Please enter a username and password.';
+      authError.textContent = 'Please enter a username and password';
       return;
     }
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
     if (users[username]) {
-      if (errorMessage) errorMessage.textContent = 'Username already exists.';
+      authError.textContent = 'Username already exists';
       return;
     }
     users[username] = password;
-    localStorage.setItem('users', JSON.stringify(users));
-    signupUsernameInput.value = '';
-    signupPasswordInput.value = '';
-    localStorage.setItem('currentUser', username);
-    loadUser();
+    saveUsers(users);
+    localStorage.setItem('naivira_currentUser', username);
+    currentUser = username;
+    authError.textContent = '';
+    showLanding();
   }
 
+  // Log in
   function handleLogin() {
-    const username = loginUsernameInput.value.trim();
-    const password = loginPasswordInput.value.trim();
-    const users = JSON.parse(localStorage.getItem('users') || '{}');
-    if (users[username] && users[username] === password) {
-      localStorage.setItem('currentUser', username);
-      loginUsernameInput.value = '';
-      loginPasswordInput.value = '';
-      loadUser();
-    } else {
-      if (errorMessage) errorMessage.textContent = 'Invalid username or password.';
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
+    if (!users[username] || users[username] !== password) {
+      authError.textContent = 'Invalid username or password';
+      return;
     }
+    localStorage.setItem('naivira_currentUser', username);
+    currentUser = username;
+    authError.textContent = '';
+    showLanding();
   }
 
+  loginBtn.addEventListener('click', handleLogin);
+  signupBtn.addEventListener('click', handleSignup);
+
+  // Persist current user
+  window.addEventListener('beforeunload', () => {
+    if (currentUser) {
+      localStorage.setItem('naivira_currentUser', currentUser);
+    }
+  });
+
+  loadUser();
+
+  // Start a topic when the user answers “what do you love”
+  loveInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && loveInput.value.trim() !== '') {
+      const topic = loveInput.value.trim();
+      loveInput.value = '';
+      startTopic(topic);
+    }
+  });
+
+  // Start or switch a topic
   function startTopic(topic) {
     currentTopic = topic;
-    hide(landing);
-    show(app);
     if (!conversations[currentTopic]) {
       conversations[currentTopic] = [];
     }
+    showApp();
     chatLog.innerHTML = '';
-    for (const msg of conversations[currentTopic]) {
-      appendChat(msg.text, msg.role);
-    }
     updateInfoCard();
+    // Load saved conversation
+    const key = `${currentUser}_${currentTopic}_conversation`;
+    const saved = JSON.parse(localStorage.getItem(key) || '[]');
+    conversations[currentTopic] = saved;
+    saved.forEach((msg) => appendChat(msg.text, msg.role));
+    if (saved.length === 0) {
+      appendChat(`You love ${topic}.`, 'bot');
+      appendChat(`Let's explore ${topic} together! Ask me anything about it.`, 'bot');
+    }
+  }
+
+  function saveConversation() {
+    if (currentUser && currentTopic) {
+      const key = `${currentUser}_${currentTopic}_conversation`;
+      localStorage.setItem(key, JSON.stringify(conversations[currentTopic]));
+    }
   }
 
   function appendChat(text, sender) {
-    const msgDiv = document.createElement('div');
-    msgDiv.classList.add('message', sender);
-    msgDiv.textContent = text;
-    chatLog.appendChild(msgDiv);
+    const div = document.createElement('div');
+    div.className = sender;
+    div.textContent = text;
+    chatLog.appendChild(div);
     chatLog.scrollTop = chatLog.scrollHeight;
+    conversations[currentTopic].push({ text, role: sender });
+    saveConversation();
   }
 
-  function updateInfoCard() {
-    if (!currentTopic) {
-      infoCard.textContent = '';
-      return;
-    }
-    const conv = conversations[currentTopic] || [];
-    const questions = conv.filter(m => m.role === 'user').map(m => m.text);
-    let summary = `You love ${currentTopic}. This card will provide information and insights as you explore.\n\n`;
-    if (questions.length > 0) {
-      summary += 'You have asked:\n';
-      questions.forEach((q, idx) => {
-        summary += `${idx + 1}. ${q}\n`;
-      });
-    } else {
-      summary += `Let's explore ${currentTopic} together! Ask me anything about ${currentTopic}.`;
-    }
-    infoCard.textContent = summary;
-  }
-
+  // Fetch a GPT answer using the existing Netlify function
   async function getAnswer(messages) {
     try {
       const response = await fetch('/.netlify/functions/chat', {
@@ -132,57 +157,62 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages })
       });
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
+      if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
-      return data.reply ? data.reply.trim() : "I'm sorry, I couldn't get an answer right now.";
-    } catch (err) {
-      console.error(err);
-      return 'This is a stubbed response.';
+      return data.reply || "I'm sorry, I couldn't get an answer.";
+    } catch (e) {
+      console.error(e);
+      return "I'm sorry, I couldn't get an answer.";
     }
   }
 
-  async function analyseQuestion(question) {
+  function updateInfoCard() {
+    const questions = conversations[currentTopic]
+      .filter((m) => m.role === 'user')
+      .map((m) => m.text);
+    if (questions.length === 0) {
+      infoCard.textContent = `You love ${currentTopic}. This card will provide information and insights as you explore.`;
+    } else {
+      let summary =
+        `You love ${currentTopic}. This card will provide information and insights as you explore.\n\n` +
+        'Questions so far:\n';
+      questions.forEach((q, idx) => {
+        summary += `${idx + 1}. ${q}\n`;
+      });
+      infoCard.textContent = summary;
+    }
+  }
+
+  // Simple heuristic for spawning new topics
+  function analyseQuestion(question) {
     const lower = question.toLowerCase();
     if (lower.includes('dog') && currentTopic.toLowerCase() !== 'dogs') {
       return 'Dogs';
     }
+    if (lower.includes('cat') && currentTopic.toLowerCase() !== 'cats') {
+      return 'Cats';
+    }
     return null;
   }
 
-  async function handleChatEnter() {
-    const question = chatInput.value.trim();
-    if (!question) return;
-    appendChat(question, 'user');
-    conversations[currentTopic].push({ role: 'user', text: question });
-    chatInput.value = '';
-    updateInfoCard();
-    const answer = await getAnswer(conversations[currentTopic]);
-    appendChat(answer, 'bot');
-    conversations[currentTopic].push({ role: 'assistant', text: answer });
-    saveConversations();
-    const newTopic = await analyseQuestion(question);
-    if (newTopic && newTopic !== currentTopic) {
-      startTopic(newTopic);
-    }
-  }
-
-  if (signupBtn) signupBtn.addEventListener('click', handleSignup);
-  if (loginBtn) loginBtn.addEventListener('click', handleLogin);
-
-  loveInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && loveInput.value.trim() !== '') {
-      startTopic(loveInput.value.trim());
+  // Chat input handler
+  chatInput.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && chatInput.value.trim() !== '') {
+      const question = chatInput.value.trim();
+      chatInput.value = '';
+      appendChat(question, 'user');
+      updateInfoCard();
+      const messagesForApi = conversations[currentTopic].map((m) => ({
+        role: m.role === 'bot' ? 'assistant' : m.role,
+        content: m.text
+      }));
+      const answer = await getAnswer(messagesForApi);
+      appendChat(answer, 'bot');
+      updateInfoCard();
+      const newTopic = analyseQuestion(question);
+      if (newTopic && newTopic !== currentTopic) {
+        startTopic(newTopic);
+      }
     }
   });
-
-  chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleChatEnter();
-    }
-  });
-
-  loadUser();
 });
