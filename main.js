@@ -1,6 +1,12 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js';
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+} from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js';
 import { firebaseConfig } from './firebaseConfig.js';
 
 // Initialise Firebase
@@ -26,46 +32,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentUser = null;
   let currentTopic = null;
-  let conversations = {};
+  const conversations = {};
 
-  function show(element) {
-    element.classList.remove('hidden');
-    element.classList.add('show');
-  }
-  function hide(element) {
-    element.classList.add('hidden');
-    element.classList.remove('show');
-  }
+  // Helpers to show/hide UI sections
+  function show(el) { el.classList.remove('hidden'); el.classList.add('show'); }
+  function hide(el) { el.classList.add('hidden'); el.classList.remove('show'); }
 
-  function showLanding() {
-    hide(authContainer);
-    show(landing);
-    hide(app);
-  }
-  function showApp() {
-    hide(landing);
-    show(app);
-  }
+  function showLanding() { hide(authContainer); show(landing); hide(app); }
+  function showApp() { hide(landing); show(app); }
 
-  // Load saved user
-  function loadUser() {
-    const users = JSON.parse(localStorage.getItem('naivira_users') || '{}');
-    const remembered = localStorage.getItem('naivira_currentUser');
-    if (remembered && users[remembered]) {
-      currentUser = remembered;
+  // Observe auth state: show landing when signed in, auth form otherwise
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      currentUser = user.uid;
+      authError.textContent = '';
       showLanding();
     } else {
+      currentUser = null;
       show(authContainer);
       hide(landing);
       hide(app);
     }
-  }
+  });
 
-  function saveUsers(users) {
-    localStorage.setItem('naivira_users', JSON.stringify(users));
-  }
-
-  // Sign up
+  // Sign up with Firebase; treat username as email local part
   async function handleSignup() {
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
@@ -73,11 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
       authError.textContent = 'Please enter a username and password';
       return;
     }
-    // turn a simple username into an email (or ask for email directly)
     const email = `${username}@naivira.app`;
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      currentUser = userCred.user.uid;
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      currentUser = cred.user.uid;
       authError.textContent = '';
       showLanding();
     } catch (err) {
@@ -85,14 +74,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Log in
+  // Log in with Firebase
   async function handleLogin() {
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
+    if (!username || !password) {
+      authError.textContent = 'Please enter your username and password';
+      return;
+    }
     const email = `${username}@naivira.app`;
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      currentUser = userCred.user.uid;
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      currentUser = cred.user.uid;
       authError.textContent = '';
       showLanding();
     } catch (err) {
@@ -100,31 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      currentUser = user.uid;
-      showLanding();
-    } else {
-      // no user signed in
-      show(authContainer);
-      hide(landing);
-      hide(app);
-    }
-  });
-  
   loginBtn.addEventListener('click', handleLogin);
   signupBtn.addEventListener('click', handleSignup);
 
-  // Persist current user
-  window.addEventListener('beforeunload', () => {
-    if (currentUser) {
-      localStorage.setItem('naivira_currentUser', currentUser);
-    }
-  });
-
-  loadUser();
-
-  // Start a topic when the user answers “what do you love”
+  // Start a topic when the user submits the “love” input
   loveInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && loveInput.value.trim() !== '') {
       const topic = loveInput.value.trim();
@@ -133,16 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Start or switch a topic
   function startTopic(topic) {
     currentTopic = topic;
-    if (!conversations[currentTopic]) {
-      conversations[currentTopic] = [];
-    }
+    if (!conversations[currentTopic]) conversations[currentTopic] = [];
     showApp();
     chatLog.innerHTML = '';
     updateInfoCard();
-    // Load saved conversation
+    // Load saved conversation from local storage keyed by UID/topic
     const key = `${currentUser}_${currentTopic}_conversation`;
     const saved = JSON.parse(localStorage.getItem(key) || '[]');
     conversations[currentTopic] = saved;
@@ -160,29 +129,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function appendChat(text, sender) {
+  function appendChat(text, role) {
     const div = document.createElement('div');
-    div.className = sender;
+    div.className = role;
     div.textContent = text;
     chatLog.appendChild(div);
     chatLog.scrollTop = chatLog.scrollHeight;
-    conversations[currentTopic].push({ text, role: sender });
+    conversations[currentTopic].push({ text, role });
     saveConversation();
   }
 
-  // Fetch a GPT answer using the existing Netlify function
   async function getAnswer(messages) {
+    // Calls your Netlify function – unchanged
     try {
-      const response = await fetch('/.netlify/functions/chat', {
+      const res = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages })
       });
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
+      if (!res.ok) throw new Error('Network response was not ok');
+      const data = await res.json();
       return data.reply || "I'm sorry, I couldn't get an answer.";
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       return "I'm sorry, I couldn't get an answer.";
     }
   }
@@ -194,35 +163,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (questions.length === 0) {
       infoCard.textContent = `You love ${currentTopic}. This card will provide information and insights as you explore.`;
     } else {
-      let summary =
-        `You love ${currentTopic}. This card will provide information and insights as you explore.\n\n` +
-        'Questions so far:\n';
-      questions.forEach((q, idx) => {
-        summary += `${idx + 1}. ${q}\n`;
+      let summary = `You love ${currentTopic}. This card will provide information and insights as you explore.\n\nQuestions so far:\n`;
+      questions.forEach((q, i) => {
+        summary += `${i + 1}. ${q}\n`;
       });
       infoCard.textContent = summary;
     }
   }
 
-  // Simple heuristic for spawning new topics
   function analyseQuestion(question) {
     const lower = question.toLowerCase();
-    if (lower.includes('dog') && currentTopic.toLowerCase() !== 'dogs') {
-      return 'Dogs';
-    }
-    if (lower.includes('cat') && currentTopic.toLowerCase() !== 'cats') {
-      return 'Cats';
-    }
+    if (lower.includes('dog') && currentTopic.toLowerCase() !== 'dogs') return 'Dogs';
+    if (lower.includes('cat') && currentTopic.toLowerCase() !== 'cats') return 'Cats';
     return null;
   }
 
-  // Chat input handler
   chatInput.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter' && chatInput.value.trim() !== '') {
       const question = chatInput.value.trim();
       chatInput.value = '';
       appendChat(question, 'user');
       updateInfoCard();
+      // Prepare conversation for API
       const messagesForApi = conversations[currentTopic].map((m) => ({
         role: m.role === 'bot' ? 'assistant' : m.role,
         content: m.text
