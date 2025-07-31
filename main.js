@@ -3,8 +3,7 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
+  onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js';
 import { firebaseConfig } from './firebaseConfig.js';
@@ -140,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function getAnswer(messages) {
-    // Calls your Netlify function – unchanged
     try {
       const res = await fetch('/.netlify/functions/chat', {
         method: 'POST',
